@@ -1,72 +1,86 @@
 mtype = {invite, ack, bye, trying, ringing, okInvite, okBye}
 
-chan n2a = [1] of {mtype};
-chan a2n = [1] of {mtype};
-chan n2p = [1] of {mtype};
-chan p2n = [1] of {mtype};
-chan n2b = [1] of {mtype};
-chan b2n = [1] of {mtype};
+#define QSZ 1
+#define ALICE 0
+#define PROXY 1
+#define BOB 2
+
+chan sip2tcp[3] = [QSZ] of {mtype};
+chan tcp2sip[3] = [QSZ] of {mtype};
+chan tcp2net[3] = [QSZ] of {mtype};
+chan net2tcp[3] = [QSZ] of {mtype};
 
 proctype alice() {
-    a2n!invite;
+    sip2tcp[ALICE]!invite;
 
 S1: do
-    :: n2a?trying
-    :: n2a?ringing
-    :: n2a?okInvite -> a2n!ack; goto S2
+    :: tcp2sip[ALICE]?trying
+    :: tcp2sip[ALICE]?ringing
+    :: tcp2sip[ALICE]?okInvite -> sip2tcp[ALICE]!ack; goto S2
     od;
 
 S2: do
     :: timeout
-    :: a2n!bye; goto S3
+    :: sip2tcp[ALICE]!bye; goto S3
     od;
 
 S3: do
-    :: n2a?okBye; break
+    :: tcp2sip[ALICE]?okBye; break
     od;
 }
 
 proctype proxy() {
     do
-    :: n2p?invite -> p2n!trying; p2n!invite
-    :: n2p?okInvite -> p2n!okInvite
-    :: n2p?ringing -> p2n!ringing
+    :: tcp2sip[PROXY]?invite -> sip2tcp[PROXY]!trying; sip2tcp[PROXY]!invite
+    :: tcp2sip[PROXY]?okInvite -> sip2tcp[PROXY]!okInvite
+    :: tcp2sip[PROXY]?ringing -> sip2tcp[PROXY]!ringing
     od
 }
 
 proctype bob() {
-    n2b?invite;
+    tcp2sip[BOB]?invite;
 
 S1: do
-    :: b2n!ringing; b2n!okInvite -> goto S2
+    :: sip2tcp[BOB]!ringing; sip2tcp[BOB]!okInvite -> goto S2
     od;
 
 S2: do
-    :: n2b?ack -> goto S3
+    :: tcp2sip[BOB]?ack -> goto S3
     od;
 
 S3: do
-    :: n2b?bye -> b2n!okBye; break
+    :: tcp2sip[BOB]?bye -> sip2tcp[BOB]!okBye; break
     od;
+}
+
+proctype tcp(byte id) {
+    byte var;
+    do
+    :: sip2tcp[id]?var -> tcp2net[id]!var
+    :: net2tcp[id]?var -> tcp2sip[id]!var
+    od
 }
 
 proctype net() {
     do
-    :: a2n?invite -> n2p!invite
-    :: a2n?ack -> n2b!ack
-    :: a2n?bye -> n2b!bye
-    :: b2n?ringing -> n2p!ringing
-    :: b2n?okInvite -> n2p!okInvite
-    :: b2n?okBye -> n2a!okBye
-    :: p2n?invite -> n2b!invite
-    :: p2n?ringing -> n2a!ringing
-    :: p2n?trying -> n2a!trying
-    :: p2n?okInvite -> n2a!okInvite
+    :: tcp2net[ALICE]?invite -> net2tcp[PROXY]!invite
+    :: tcp2net[ALICE]?ack -> net2tcp[BOB]!ack
+    :: tcp2net[ALICE]?bye -> net2tcp[BOB]!bye
+    :: tcp2net[BOB]?ringing -> net2tcp[PROXY]!ringing
+    :: tcp2net[BOB]?okInvite -> net2tcp[PROXY]!okInvite
+    :: tcp2net[BOB]?okBye -> net2tcp[ALICE]!okBye
+    :: tcp2net[PROXY]?invite -> net2tcp[BOB]!invite
+    :: tcp2net[PROXY]?ringing -> net2tcp[ALICE]!ringing
+    :: tcp2net[PROXY]?trying -> net2tcp[ALICE]!trying
+    :: tcp2net[PROXY]?okInvite -> net2tcp[ALICE]!okInvite
     od
 }
 
 init {
     run net();
+    run tcp(ALICE);
+    run tcp(PROXY);
+    run tcp(BOB);
     run alice();
     run proxy();
     run bob();
