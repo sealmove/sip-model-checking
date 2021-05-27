@@ -1,4 +1,4 @@
-mtype = {invite, ack, bye, cancel, trying, ringing, ok}
+mtype = {invite, ack, bye, cancel, trying, ringing, ok, error}
 
 #define QSZ 1
 #define ALICE 0
@@ -18,6 +18,7 @@ S1: do
     :: tcp2sip[ALICE]?ringing
     :: tcp2sip[ALICE]?ok, invite -> sip2tcp[ALICE]!ack; goto S2
     :: tcp2sip[ALICE]?cancel -> goto S4
+    :: tcp2sip[ALICE]?error -> goto S4
     od;
 
 S2: do
@@ -33,7 +34,12 @@ S4: assert(true)
 
 proctype proxy() {
     do
-    :: tcp2sip[PROXY]?invite -> sip2tcp[PROXY]!trying; sip2tcp[PROXY]!invite
+    :: tcp2sip[PROXY]?invite ->
+        sip2tcp[PROXY]!trying;
+        if
+        :: sip2tcp[PROXY]!invite
+        :: sip2tcp[PROXY]!error
+        fi
     :: tcp2sip[PROXY]?ok, invite -> sip2tcp[PROXY]!ok, invite
     :: tcp2sip[PROXY]?ringing -> sip2tcp[PROXY]!ringing
     :: tcp2sip[PROXY]?cancel -> sip2tcp[PROXY]!cancel
@@ -81,6 +87,7 @@ proctype net() {
     :: tcp2net[PROXY]?trying -> net2tcp[ALICE]!trying
     :: tcp2net[PROXY]?ok, invite -> net2tcp[ALICE]!ok, invite
     :: tcp2net[PROXY]?cancel -> net2tcp[ALICE]!cancel
+    :: tcp2net[PROXY]?error -> net2tcp[ALICE]!error
     od
 }
 
