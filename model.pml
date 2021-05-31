@@ -5,10 +5,10 @@ mtype = {msg, invite, ack, bye, cancel, trying, ringing, ok, error}
 #define PROXY 1
 #define BOB 2
 
-chan sip2tcp[3] = [QSZ] of {mtype, byte};
-chan tcp2sip[3] = [QSZ] of {mtype, byte};
-chan tcp2net[3] = [QSZ] of {mtype, byte};
-chan net2tcp[3] = [QSZ] of {mtype, byte};
+chan sip2tcp[3] = [QSZ] of {mtype, mtype};
+chan tcp2sip[3] = [QSZ] of {mtype, mtype};
+chan tcp2net[3] = [QSZ] of {mtype, mtype};
+chan net2tcp[3] = [QSZ] of {mtype, mtype};
 
 proctype alice() {
     sip2tcp[ALICE]!invite;
