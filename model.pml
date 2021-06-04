@@ -58,7 +58,7 @@ end_not_invited:
 end:
 }
 
-proctype tcpSender(byte id) {
+proctype tcps(byte id) {
    mtype sip;
    bit b, s;
 
@@ -77,7 +77,7 @@ sending:
    fi
 }
 
-proctype tcpReceiver(byte id) {
+proctype tcpr(byte id) {
    mtype sip;
    bit b, r;
 
@@ -133,18 +133,18 @@ end:
 
 init {
    run net();
-   run tcpSender(AP);
-   run tcpReceiver(AP);
-   run tcpSender(AB);
-   run tcpReceiver(AB);
-   run tcpSender(PA);
-   run tcpReceiver(PA);
-   run tcpSender(PB);
-   run tcpReceiver(PB);
-   run tcpSender(BA);
-   run tcpReceiver(BA);
-   run tcpSender(BP);
-   run tcpReceiver(BP);
+   run tcps(AP);
+   run tcpr(AP);
+   run tcps(AB);
+   run tcpr(AB);
+   run tcps(PA);
+   run tcpr(PA);
+   run tcps(PB);
+   run tcpr(PB);
+   run tcps(BA);
+   run tcpr(BA);
+   run tcps(BP);
+   run tcpr(BP);
    run alice();
    run proxy();
    run bob();
