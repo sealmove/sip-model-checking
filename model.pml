@@ -1,10 +1,10 @@
 mtype = {msg, ack, invite, bye, cancel, trying, ringing, ok, error}
 
-#define QSZ 2
+#define QSZ 1
 #define AP 0
 #define AB 1
-#define PA 2
-#define PB 3
+#define PB 2
+#define PA 3
 #define BA 4
 #define BP 5
 
@@ -26,10 +26,10 @@ proctype alice() {
    tcp2sip[AB]?ok;
 
 end:
-   assert(true)
 }
 
 proctype proxy() {
+end:
    do
    :: tcp2sip[PA]?invite ->
       sip2tcp[PA]!trying;
@@ -44,33 +44,33 @@ proctype proxy() {
 }
 
 proctype bob() {
+end_not_invited:
    tcp2sip[BP]?invite;
    sip2tcp[BP]!ringing;
    if
    :: sip2tcp[BP]!ok -> skip
    :: sip2tcp[BP]!cancel -> goto end
-   fi
+   fi;
    tcp2sip[BA]?ack;
    tcp2sip[BA]?bye;
    sip2tcp[BA]!ok;
 
 end:
-   assert(true)
 }
 
 proctype tcpSender(byte id) {
-   mtype sipdata;
-   bit b, s, r;
+   mtype sip;
+   bit b, s;
 
-standby:
-   sip2tcp[id]?sipdata;
+end:
+   sip2tcp[id]?sip;
 
 sending:
-   tcp2net[id]!msg, sipdata, s;
+   tcp2net[id]!msg, sip, s;
    if
    :: net2tcp[id]?ack, _, b ->
       if
-      :: b == s -> s = 1 - s; goto standby
+      :: b == s -> s = 1 - s; goto end
       :: b != s -> goto sending
       fi
    :: timeout -> goto sending
@@ -78,51 +78,54 @@ sending:
 }
 
 proctype tcpReceiver(byte id) {
-   mtype sipdata;
-   bit b, s, r;
+   mtype sip;
+   bit b, r;
 
+end:
    do
-   :: net2tcp[id]?msg, sipdata, b;
+   :: net2tcp[id]?msg, sip, b;
       tcp2net[id]!ack, 0, b;
       if
-      :: b == r -> r = 1 - r; tcp2sip[id]!sipdata
+      :: b == r -> r = 1 - r; tcp2sip[id]!sip
       :: b != r -> skip
       fi
-   od;
+   od
 }
 
 proctype net() {
-   mtype tcpdata, sipdata;
+   mtype tcp, sip;
    bit r;
+
+end:
    do
-   :: tcp2net[AP]?tcpdata, sipdata, r ->
+   :: tcp2net[AP]?tcp, sip, r ->
       if
-      :: net2tcp[PA]!tcpdata, sipdata, r
+      :: net2tcp[PA]!tcp, sip, r
       :: skip
       fi
-   :: tcp2net[AB]?tcpdata, sipdata, r ->
+   :: tcp2net[AB]?tcp, sip, r ->
       if
-      :: net2tcp[BA]!tcpdata, sipdata, r
+      :: net2tcp[BA]!tcp, sip, r
       :: skip
       fi
-   :: tcp2net[PA]?tcpdata, sipdata, r ->
+   :: tcp2net[PA]?tcp, sip, r ->
       if
-      :: net2tcp[AP]!tcpdata, sipdata, r
+      :: net2tcp[AP]!tcp, sip, r
       :: skip
       fi
-   :: tcp2net[PB]?tcpdata, sipdata, r ->
+   :: tcp2net[PB]?tcp, sip, r ->
       if
-      :: net2tcp[BP]!tcpdata, sipdata, r
+      :: net2tcp[BP]!tcp, sip, r
       :: skip
       fi
-   :: tcp2net[BA]?tcpdata, sipdata, r ->
+   :: tcp2net[BA]?tcp, sip, r ->
       if
-      :: net2tcp[AB]!tcpdata, sipdata, r
+      :: net2tcp[AB]!tcp, sip, r
       :: skip
       fi
-   :: tcp2net[BP]?tcpdata, sipdata, r ->
+   :: tcp2net[BP]?tcp, sip, r ->
       if
-      :: net2tcp[PB]!tcpdata, sipdata, r
+      :: net2tcp[PB]!tcp, sip, r
       :: skip
       fi
    od
@@ -146,3 +149,10 @@ init {
    run proxy();
    run bob();
 }
+
+#define TWIN(x) (((x)+3)%6)
+
+byte proc;
+mtype x;
+
+ltl { [] (sip2tcp[proc]?[x]) -> (<> tcp2sip[TWIN(proc)]?[x]) }
